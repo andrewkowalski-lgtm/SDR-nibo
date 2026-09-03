@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDR RevOps - Calculadora de Produtividade</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#0f172a',    // Slate 900
+                        panelBg: '#1e293b',   // Slate 800
+                        brandBlue: '#3b82f6', // Blue 500
+                        brandGreen: '#10b981' // Emerald 500
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Estilos personalizados para a barra de rolagem e transições suaves */
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Estilo para itens do checklist quando marcados (riscados) */
+        .checklist-item.completed span {
+            text-decoration: line-through;
+            color: #64748b; /* Slate 500 */
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 custom-scrollbar">
+
+    <header class="max-w-6xl mx-auto mb-8">
+        <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+            <svg class="w-8 h-8 text-brandBlue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            SDR Pro <span class="text-brandBlue font-light">RevOps Calculator</span>
+        </h1>
+        <p class="text-slate-400 mt-2">Engenharia reversa de metas: descubra exatamente o que fazer hoje para bater a meta do mês.</p>
+    </header>
+
+    <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <div class="lg:col-span-5 space-y-6">
+            
+            <section class="bg-panelBg border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <h2 class="text-xl font-semibold text-white mb-6 border-b border-slate-700 pb-3">Parâmetros da Operação</h2>
+                
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Meta de SQLs / Reuniões Realizadas (Mês)</label>
+                        <input type="number" id="in-goal" value="15" min="1" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brandBlue focus:ring-1 focus:ring-brandBlue transition-colors">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Dias Úteis</label>
+                            <input type="number" id="in-days" value="22" min="1" max="31" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brandBlue transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Show-up Rate (%)</label>
+                            <input type="number" id="in-showup" value="75" min="1" max="100" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brandBlue transition-colors">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Taxa de Conexão (%)</label>
+                            <input type="number" id="in-connRate" value="15" min="1" max="100" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brandBlue transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-1">Conversão para SQL (%)</label>
+                            <input type="number" id="in-convRate" value="10" min="1" max="100" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brandBlue transition-colors">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-panelBg border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+                    <h2 class="text-lg font-semibold text-white">Checklist de Rotina (SDR)</h2>
+                    <span class="text-xs font-medium bg-brandBlue/20 text-brandBlue px-2 py-1 rounded">Diário</span>
+                </div>
+                
+                <div class="space-y-3" id="checklist-container">
+                    <label class="checklist-item flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" class="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-brandBlue focus:ring-brandBlue focus:ring-offset-slate-800">
+                        <span class="text-sm text-slate-300 group-hover:text-white transition-colors">Revisar e organizar tarefas no CRM (15 min)</span>
+                    </label>
+                    
+                    <label class="checklist-item flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" class="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-brandBlue focus:ring-brandBlue focus:ring-offset-slate-800">
+                        <span class="text-sm text-slate-300 group-hover:text-white transition-colors">Executar bloco de Cold Calling da manhã</span>
+                    </label>
+
+                    <label class="checklist-item flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" class="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-brandBlue focus:ring-brandBlue focus:ring-offset-slate-800">
+                        <span class="text-sm text-slate-300 group-hover:text-white transition-colors">Responder emails e mensagens no LinkedIn</span>
+                    </label>
+
+                    <label class="checklist-item flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" class="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-brandBlue focus:ring-brandBlue focus:ring-offset-slate-800">
+                        <span class="text-sm text-slate-300 group-hover:text-white transition-colors">Fazer Follow-up de No-Shows da semana</span>
+                    </label>
+
+                    <label class="checklist-item flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" class="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-brandBlue focus:ring-brandBlue focus:ring-offset-slate-800">
+                        <span class="text-sm text-slate-300 group-hover:text-white transition-colors">Atualizar anotações e qualificação dos Leads gerados</span>
+                    </label>
+                </div>
+            </section>
+
+        </div>
+
+        <div class="lg:col-span-7 space-y-6 flex flex-col">
+            
+            <section class="bg-panelBg border border-slate-700 rounded-2xl p-6 shadow-xl flex-1">
+                <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-3">
+                    <h2 class="text-xl font-semibold text-white">Seu Mapa de Execução</h2>
+                    <button onclick="exportToTxt()" class="bg-brandBlue hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Exportar (.txt)
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-center">
+                        <p class="text-xs text-slate-400 font-medium uppercase mb-1">Volume Diário</p>
+                        <p class="text-3xl font-bold text-white" id="out-daily-prospects">0</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Leads abordados</p>
+                        <div class="mt-2 pt-2 border-t border-slate-700/50">
+                            <p class="text-xs text-slate-400">Mês: <span id="out-month-prospects" class="text-white font-semibold">0</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-center">
+                        <p class="text-xs text-slate-400 font-medium uppercase mb-1">Conexões/Dia</p>
+                        <p class="text-3xl font-bold text-blue-400" id="out-daily-connections">0</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Comunicação real</p>
+                        <div class="mt-2 pt-2 border-t border-slate-700/50">
+                            <p class="text-xs text-slate-400">Mês: <span id="out-month-connections" class="text-blue-400 font-semibold">0</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-center">
+                        <p class="text-xs text-slate-400 font-medium uppercase mb-1">Agendados/Dia</p>
+                        <p class="text-3xl font-bold text-teal-400" id="out-daily-scheduled">0</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Marcados na agenda</p>
+                        <div class="mt-2 pt-2 border-t border-slate-700/50">
+                            <p class="text-xs text-slate-400">Mês: <span id="out-month-scheduled" class="text-teal-400 font-semibold">0</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-brandGreen/10 border border-brandGreen/30 rounded-xl p-4 text-center">
+                        <p class="text-xs text-brandGreen font-medium uppercase mb-1">Meta Dia (SQL)</p>
+                        <p class="text-3xl font-bold text-brandGreen" id="out-daily-held">0</p>
+                        <p class="text-[10px] text-brandGreen/70 mt-1">Meetings Realizados</p>
+                        <div class="mt-2 pt-2 border-t border-brandGreen/20">
+                            <p class="text-xs text-brandGreen/80">Mês: <span id="out-month-held" class="text-brandGreen font-bold">0</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-medium text-slate-400 mb-4">Representação Visual do Funil (Mensal)</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="funnelChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        // Mapeamento dos elementos de Input
+        const inGoal = document.getElementById('in-goal');
+        const inDays = document.getElementById('in-days');
+        const inShowup = document.getElementById('in-showup');
+        const inConnRate = document.getElementById('in-connRate');
+        const inConvRate = document.getElementById('in-convRate');
+
+        // Mapeamento dos elementos de Output (Mensal)
+        const outMonthProspects = document.getElementById('out-month-prospects');
+        const outMonthConnections = document.getElementById('out-month-connections');
+        const outMonthScheduled = document.getElementById('out-month-scheduled');
+        const outMonthHeld = document.getElementById('out-month-held');
+
+        // Mapeamento dos elementos de Output (Diário)
+        const outDailyProspects = document.getElementById('out-daily-prospects');
+        const outDailyConnections = document.getElementById('out-daily-connections');
+        const outDailyScheduled = document.getElementById('out-daily-scheduled');
+        const outDailyHeld = document.getElementById('out-daily-held');
+
+        // Variável global para armazenar a instância do gráfico
+        let funnelChartInstance = null;
+
+        // Função principal de cálculo (RevOps Math)
+        function calculateMetrics() {
+            // Pegando valores e evitando erros (NaN ou divisão por zero)
+            const goal = parseInt(inGoal.value) || 1;
+            const days = parseInt(inDays.value) || 1;
+            const showupRate = (parseFloat(inShowup.value) || 1) / 100;
+            const convRate = (parseFloat(inConvRate.value) || 1) / 100;
+            const connRate = (parseFloat(inConnRate.value) || 1) / 100;
+
+            // Engenharia Reversa (Cálculos Mensais)
+            // 1. Reuniões Realizadas (A própria meta)
+            const monthHeld = goal;
+            
+            // 2. Reuniões que precisam ser agendadas considerando as faltas (no-shows)
+            const monthScheduled = Math.ceil(monthHeld / showupRate);
+            
+            // 3. Conexões necessárias para gerar os agendamentos
+            const monthConnections = Math.ceil(monthScheduled / convRate);
+            
+            // 4. Volume total de prospecção necessário para gerar as conexões
+            const monthProspects = Math.ceil(monthConnections / connRate);
+
+            // Cálculos Diários (dividindo pelos dias úteis e arredondando para cima)
+            const dailyHeld = (monthHeld / days).toFixed(1); // Exibe 1 casa decimal na meta diária para precisão
+            const dailyScheduled = Math.ceil(monthScheduled / days);
+            const dailyConnections = Math.ceil(monthConnections / days);
+            const dailyProspects = Math.ceil(monthProspects / days);
+
+            // Atualizando o HTML (DOM)
+            outMonthHeld.innerText = monthHeld;
+            outMonthScheduled.innerText = monthScheduled;
+            outMonthConnections.innerText = monthConnections;
+            outMonthProspects.innerText = monthProspects;
+
+            outDailyHeld.innerText = dailyHeld;
+            outDailyScheduled.innerText = dailyScheduled;
+            outDailyConnections.innerText = dailyConnections;
+            outDailyProspects.innerText = dailyProspects;
+
+            // Atualizar Gráfico
+            updateChart([monthProspects, monthConnections, monthScheduled, monthHeld]);
+        }
+
+        // Função para desenhar/atualizar o gráfico com Chart.js
+        function updateChart(dataValues) {
+            const ctx = document.getElementById('funnelChart').getContext('2d');
+            
+            if (funnelChartInstance) {
+                // Atualiza dados se o gráfico já existir
+                funnelChartInstance.data.datasets[0].data = dataValues;
+                funnelChartInstance.update();
+            } else {
+                // Cria o gráfico na primeira vez
+                // COMENTÁRIO: Utilizando um gráfico de barras horizontal para simular um funil
+                funnelChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Prospecções', 'Conexões', 'Agendamentos', 'SQLs Realizados'],
+                        datasets: [{
+                            label: 'Volume Mensal Necessário',
+                            data: dataValues,
+                            backgroundColor: [
+                                '#475569', // Slate 600
+                                '#3b82f6', // Brand Blue
+                                '#2dd4bf', // Teal 400
+                                '#10b981'  // Emerald 500
+                            ],
+                            borderWidth: 0,
+                            borderRadius: 6,
+                            barPercentage: 0.6
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Inverte os eixos para fazer barras horizontais
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                titleColor: '#f8fafc',
+                                bodyColor: '#f8fafc',
+                                padding: 12,
+                                displayColors: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: '#334155', drawBorder: false },
+                                ticks: { color: '#94a3b8' }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: { color: '#e2e8f0', font: { weight: '600' } }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Função para Exportar o Relatório em .TXT
+        function exportToTxt() {
+            // Coletando dados atuais
+            const txtContent = `
+=========================================
+RELATÓRIO DE EXECUÇÃO - SDR REVOPS
+Data de Geração: ${new Date().toLocaleDateString('pt-BR')}
+=========================================
+
+[ PARÂMETROS INFORMADOS ]
+Meta Mensal (SQLs/Reuniões): ${inGoal.value}
+Dias Úteis no Mês: ${inDays.value}
+Taxa de Show-up: ${inShowup.value}%
+Taxa de Conversão para SQL: ${inConvRate.value}%
+Taxa de Conexão com Leads: ${inConnRate.value}%
+
+[ METAS MENSAIS ]
+Total de Prospecções necessárias: ${outMonthProspects.innerText}
+Total de Conexões necessárias: ${outMonthConnections.innerText}
+Total de Agendamentos necessários: ${outMonthScheduled.innerText}
+Total de SQLs (Meta): ${outMonthHeld.innerText}
+
+[ METAS DIÁRIAS (A SUA ROTINA) ]
+Fazer ${outDailyProspects.innerText} Prospecções / Abordagens.
+Conseguir ${outDailyConnections.innerText} Conexões Reais.
+Realizar ${outDailyScheduled.innerText} Agendamentos.
+Garantir ${outDailyHeld.innerText} Reuniões Realizadas.
+
+=========================================
+Gerado via Calculadora de Produtividade
+=========================================
+            `.trim();
+
+            // Criando o arquivo Blob e forçando o download
+            const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'Relatorio_Produtividade_SDR.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Inicialização de Eventos
+        document.addEventListener('DOMContentLoaded', () => {
+            // Adiciona ouvintes para recalcular sempre que um input mudar
+            const inputs = [inGoal, inDays, inShowup, inConnRate, inConvRate];
+            inputs.forEach(input => {
+                input.addEventListener('input', calculateMetrics);
+            });
+
+            // Lógica simples de UI para o Checklist diário
+            const checklistItems = document.querySelectorAll('.checklist-item input[type="checkbox"]');
+            checklistItems.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        this.parentElement.classList.add('completed');
+                    } else {
+                        this.parentElement.classList.remove('completed');
+                    }
+                });
+            });
+
+            // Primeira execução ao carregar a página
+            calculateMetrics();
+        });
+    </script>
+</body>
+</html>
